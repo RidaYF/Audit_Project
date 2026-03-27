@@ -2,7 +2,7 @@
     <div class="container-fluid">
         <!-- Logo et bouton toggler -->
         <a href="{{ route('questions.index') }}" class="navbar-brand">
-            <img src="{{ asset('images/logo.svg') }}" class="logo" width="70" height="40">
+            <img src="{{ asset('assets/images/logo/logo.svg') }}" class="logo" width="70" height="40" alt="Learn=>Audit" onerror="this.src='https://via.placeholder.com/120x32?text=Learn%3D%3EAudit'">
         </a>
         
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarContent">
