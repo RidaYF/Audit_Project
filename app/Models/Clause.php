@@ -15,7 +15,8 @@ class Clause extends Model
 
     protected $fillable = [
         'id', 'reference_id', 'parent_id', 'numero', 'titre', 'description',
-        'niveau', 'chemin_complet', 'niveau_importance', 'ordre_affichage'
+        'niveau', 'chemin_complet', 'niveau_importance', 'ordre_affichage',
+        'created_by', 'updated_by'
     ];
 
     public function reference()
@@ -36,5 +37,15 @@ class Clause extends Model
     public function controles()
     {
         return $this->hasMany(Controle::class, 'clause_id');
+    }
+    
+    public function creator()
+    {
+        return $this->belongsTo(Utilisateur::class, 'created_by');
+    }
+    
+    public function updater()
+    {
+        return $this->belongsTo(Utilisateur::class, 'updated_by');
     }
 }

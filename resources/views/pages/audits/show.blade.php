@@ -13,7 +13,7 @@
         </div>
         <div class="flex gap-2">
             @if($audit->status === 'en_cours')
-                <a href="{{ route('audit.current') }}" class="btn btn-primary">
+                <a href="{{ route('audit.current', ['audit_id' => $audit->id]) }}" class="btn btn-primary">
                     Continuer l'audit
                 </a>
             @endif
@@ -95,6 +95,123 @@
         </div>
         @endif
     </div>
+    
+    <!-- Section: Clauses ISO 27001 -->
+    @if($audit->clauseEvaluations && $audit->clauseEvaluations->count() > 0)
+    <div class="card">
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-lg font-semibold text-gray-900">Clauses ISO 27001</h2>
+            <a href="{{ route('audits.clauses', $audit->id) }}" class="text-sm text-purple-600 hover:text-purple-700">
+                Gérer toutes les clauses →
+            </a>
+        </div>
+        <div class="space-y-3">
+            @foreach($audit->clauseEvaluations->take(5) as $clauseEval)
+            <div class="border rounded-lg p-4 hover:bg-gray-50 transition-colors">
+                <div class="flex items-start justify-between">
+                    <div class="flex-1">
+                        <div class="flex items-center gap-2 mb-2">
+                            <span class="font-mono text-sm font-semibold text-purple-600">
+                                {{ $clauseEval->clause->numero }}
+                            </span>
+                            <span class="font-medium text-gray-900">
+                                {{ $clauseEval->clause->titre }}
+                            </span>
+                            @php
+                                $statutClasses = [
+                                    'non_audite' => 'badge-soft-gray',
+                                    'conforme' => 'badge-soft-success',
+                                    'non_conforme' => 'badge-soft-danger',
+                                    'partiellement_conforme' => 'badge-soft-warning',
+                                    'non_applicable' => 'badge-soft-secondary'
+                                ];
+                            @endphp
+                            <span class="text-xs px-2 py-0.5 rounded-full {{ $statutClasses[$clauseEval->statut] ?? 'badge-soft-gray' }}">
+                                {{ str_replace('_', ' ', $clauseEval->statut) }}
+                            </span>
+                        </div>
+                        @if($clauseEval->justification)
+                        <p class="text-sm text-gray-600 mt-1">{{ Str::limit($clauseEval->justification, 150) }}</p>
+                        @endif
+                    </div>
+                    <a href="{{ route('audits.clause.edit', [$audit->id, $clauseEval->id]) }}" 
+                       class="text-purple-600 hover:text-purple-800 ml-4">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
+                        </svg>
+                    </a>
+                </div>
+            </div>
+            @endforeach
+            @if($audit->clauseEvaluations->count() > 5)
+            <div class="text-center pt-2">
+                <a href="{{ route('audits.clauses', $audit->id) }}" class="text-purple-600 hover:text-purple-700 text-sm">
+                    Voir les {{ $audit->clauseEvaluations->count() - 5 }} autres clauses...
+                </a>
+            </div>
+            @endif
+        </div>
+    </div>
+    @endif
+    
+    <!-- Section: Contrôles ISO 27002 -->
+    @if($audit->evaluations && $audit->evaluations->count() > 0)
+    <div class="card">
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-lg font-semibold text-gray-900">Contrôles ISO 27002</h2>
+            <a href="{{ route('audits.controls', $audit->id) }}" class="text-sm text-purple-600 hover:text-purple-700">
+                Gérer tous les contrôles →
+            </a>
+        </div>
+        <div class="space-y-3">
+            @foreach($audit->evaluations->take(5) as $evaluation)
+            <div class="border rounded-lg p-4 hover:bg-gray-50 transition-colors">
+                <div class="flex items-start justify-between">
+                    <div class="flex-1">
+                        <div class="flex items-center gap-2 mb-2">
+                            <span class="font-mono text-sm font-semibold text-blue-600">
+                                {{ $evaluation->controle->code }}
+                            </span>
+                            <span class="font-medium text-gray-900">
+                                {{ $evaluation->controle->titre }}
+                            </span>
+                            @php
+                                $statutClasses = [
+                                    'non_audite' => 'badge-soft-gray',
+                                    'conforme' => 'badge-soft-success',
+                                    'non_conforme' => 'badge-soft-danger',
+                                    'partiellement_conforme' => 'badge-soft-warning',
+                                    'non_applicable' => 'badge-soft-secondary'
+                                ];
+                            @endphp
+                            <span class="text-xs px-2 py-0.5 rounded-full {{ $statutClasses[$evaluation->statut] ?? 'badge-soft-gray' }}">
+                                {{ str_replace('_', ' ', $evaluation->statut) }}
+                            </span>
+                        </div>
+                        <p class="text-sm text-gray-600">{{ Str::limit($evaluation->controle->description, 200) }}</p>
+                        @if($evaluation->justification)
+                        <p class="text-xs text-gray-500 mt-2">Justification: {{ Str::limit($evaluation->justification, 100) }}</p>
+                        @endif
+                    </div>
+                    <a href="{{ route('audits.control.edit', [$audit->id, $evaluation->id]) }}" 
+                       class="text-blue-600 hover:text-blue-800 ml-4">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
+                        </svg>
+                    </a>
+                </div>
+            </div>
+            @endforeach
+            @if($audit->evaluations->count() > 5)
+            <div class="text-center pt-2">
+                <a href="{{ route('audits.controls', $audit->id) }}" class="text-purple-600 hover:text-purple-700 text-sm">
+                    Voir les {{ $audit->evaluations->count() - 5 }} autres contrôles...
+                </a>
+            </div>
+            @endif
+        </div>
+    </div>
+    @endif
     
     <!-- Actions rapides -->
     <div class="grid grid-cols-2 md:grid-cols-4 gap-4">

@@ -1,5 +1,4 @@
 <?php
-// database/migrations/2026_03_28_000009_create_audit_references_table.php
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
@@ -17,12 +16,9 @@ return new class extends Migration
             $table->integer('ponderation')->default(1);
             $table->timestamps();
 
-            $table->unique(['audit_id', 'reference_id']);
-            $table->index('audit_id');
-            $table->index('reference_id');
-            
             $table->foreign('audit_id')->references('id')->on('audits')->onDelete('cascade');
-            $table->foreign('reference_id')->references('id')->on('references');
+            $table->foreign('reference_id')->references('id')->on('iso_references')->onDelete('cascade');
+            $table->unique(['audit_id', 'reference_id']);
         });
     }
 

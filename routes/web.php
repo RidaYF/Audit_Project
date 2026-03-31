@@ -5,6 +5,8 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\AuditController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\ControleController; 
+use App\Http\Controllers\RiskController; 
 
 # Les routes 
 
@@ -39,41 +41,88 @@ Route::get('/faq', function () {
 
 // Routes protégées par authentification
 Route::middleware(['auth'])->group(function () {
-    // Dashboard pages
+    // Dashboard
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
-    // Pages d'audit
-    Route::get('/audit/current', [AuditController::class, 'current'])->name('audit.current');
-    Route::get('/audit/controls/{section?}', [AuditController::class, 'controls'])->name('controls.iso');
-    Route::get('/audit/evidence', [AuditController::class, 'evidence'])->name('evidence.collect');
-    Route::get('/audit/evaluation', [AuditController::class, 'evaluation'])->name('evaluation.index');
-    Route::get('/audit/risk', [AuditController::class, 'risk'])->name('risk.management');
-    Route::get('/audits', [AuditController::class, 'index'])->name('audits.index');
-    Route::get('/audits/create', [AuditController::class, 'create'])->name('audits.create');
-    Route::post('/audits', [AuditController::class, 'store'])->name('audits.store');
-    Route::get('/audits/{id}', [AuditController::class, 'show'])->name('audits.show');
-    Route::get('/audits/{id}/edit', [AuditController::class, 'edit'])->name('audits.edit');
-    Route::put('/audits/{id}', [AuditController::class, 'update'])->name('audits.update');
-    Route::delete('/audits/{id}', [AuditController::class, 'destroy'])->name('audits.destroy');
-    Route::post('/audits/{id}/start', [AuditController::class, 'start'])->name('audits.start');
+    // ============================================
+    // GESTION DES AUDITS
+    // ============================================
+    Route::prefix('audits')->group(function () {
+        // CRUD de base
+        Route::get('/', [AuditController::class, 'index'])->name('audits.index');
+        Route::get('/create', [AuditController::class, 'create'])->name('audits.create');
+        Route::post('/', [AuditController::class, 'store'])->name('audits.store');
+        Route::get('/{id}', [AuditController::class, 'show'])->name('audits.show');
+        Route::get('/{id}/edit', [AuditController::class, 'edit'])->name('audits.edit');
+        Route::put('/{id}', [AuditController::class, 'update'])->name('audits.update');
+        Route::delete('/{id}', [AuditController::class, 'destroy'])->name('audits.destroy');
+        Route::post('/{id}/start', [AuditController::class, 'start'])->name('audits.start');
+        
+        // Gestion des clauses
+        Route::get('/{id}/clauses', [AuditController::class, 'clauses'])->name('audits.clauses');
+        Route::get('/{auditId}/clause/{clauseEvalId}/edit', [AuditController::class, 'editClause'])->name('audits.clause.edit');
+        Route::put('/{auditId}/clause/{clauseEvalId}', [AuditController::class, 'updateClause'])->name('audits.clause.update');
+        
+        // Gestion des contrôles
+        Route::get('/{id}/controls', [AuditController::class, 'controlsList'])->name('audits.controls');
+        Route::get('/{auditId}/control/{evaluationId}/edit', [AuditController::class, 'editControl'])->name('audits.control.edit');
+        Route::put('/{auditId}/control/{evaluationId}', [AuditController::class, 'updateControl'])->name('audits.control.update');
 
-    // Routes API pour charger les structures ISO
-    Route::get('/api/enterprises/{id}', [AuditController::class, 'getEnterpriseData']);
-    Route::get('/api/references/{id}/structure', [AuditController::class, 'getReferenceStructure']);
+        Route::get('/{auditId}/clause-risk/{clauseEvalId}/edit', [AuditController::class, 'editClauseRisk'])
+        ->name('audits.clause.edit-risk');
+        Route::put('/{auditId}/clause-risk/{clauseEvalId}', [AuditController::class, 'updateClauseRisk'])
+            ->name('audits.clause.update-risk');
 
+    });
+    
+    // ============================================
+    // AUDIT EN COURS (pages de travail)
+    // ============================================
+    Route::prefix('audit')->group(function () {
+        Route::get('/current/{audit_id?}', [AuditController::class, 'current'])->name('audit.current');
+        Route::get('/controls/{section?}', [AuditController::class, 'controls'])->name('controls.iso');
+        Route::get('/controls/{id}/show', [AuditController::class, 'controlsShow'])->name('controls.iso.show');
+        Route::get('/evidence', [AuditController::class, 'evidence'])->name('evidence.collect');
+        Route::get('/evaluation', [AuditController::class, 'evaluation'])->name('evaluation.index');
+        Route::get('/risk', [AuditController::class, 'risk'])->name('risk.management'); // Gardez celle-ci
+        
+        // Mises à jour des évaluations (API)
+        Route::put('/clause-evaluation/{id}', [AuditController::class, 'updateClauseEvaluation'])->name('audit.clause-evaluation.update');
+        Route::put('/evaluation/{id}', [AuditController::class, 'updateEvaluation'])->name('audit.evaluation.update');
 
-    // Routes pour les contrôles
-    Route::get('/audit/controls', [AuditController::class, 'controls'])->name('controls.iso');
-    Route::get('/audit/controls/{section}', [AuditController::class, 'controls'])->name('controls.iso');
-    Route::get('/audit/controls/{id}/show', [AuditController::class, 'controlsShow'])->name('controls.iso.show');
-    Route::put('/audit/clause-evaluation/{id}', [AuditController::class, 'updateClauseEvaluation'])->name('audit.clause-evaluation.update');
-    Route::put('/audit/evaluation/{id}', [AuditController::class, 'updateEvaluation'])->name('audit.evaluation.update');
+    });
 
+    // Routes pour la gestion des contrôles (admin/formateur uniquement)
+    Route::prefix('controles')->name('controles.')->middleware(['auth'])->group(function () {
+        Route::get('/', [ControleController::class, 'index'])->name('index');
+        Route::get('/{id}/edit', [ControleController::class, 'edit'])->name('edit');
+        Route::put('/{id}', [ControleController::class, 'update'])->name('update');
+        Route::get('/{id}/preuves', [ControleController::class, 'preuves'])->name('preuves');
+        Route::post('/{id}/preuves', [ControleController::class, 'addPreuve'])->name('preuves.add');
+        Route::delete('/preuves/{preuveId}', [ControleController::class, 'deletePreuve'])->name('preuves.delete');
+        Route::delete('/preuves/{preuveId}/file', [ControleController::class, 'deleteFile'])->name('preuves.delete-file');
+    });
 
-    // Pages de rapports
-    Route::get('/reports/audit', [ReportController::class, 'audit'])->name('report.index');
-    Route::get('/reports/history', [ReportController::class, 'history'])->name('audit.history');
-    Route::get('/reports/statistics', [ReportController::class, 'statistics'])->name('statistics.index');
+    // ============================================
+    // Risk (pages de travail)
+    // ============================================
+    
+    // ============================================
+    // API ROUTES (pour chargement dynamique)
+    // ============================================
+    Route::prefix('api')->group(function () {
+        Route::get('/enterprises/{id}', [AuditController::class, 'getEnterpriseData']);
+        Route::get('/references/{id}/structure', [AuditController::class, 'getReferenceStructure']);
+    });
+    
+    // ============================================
+    // RAPPORTS ET STATISTIQUES
+    // ============================================
+    Route::prefix('reports')->group(function () {
+        Route::get('/audit', [ReportController::class, 'audit'])->name('report.index');
+        Route::get('/history', [ReportController::class, 'history'])->name('audit.history');
+        Route::get('/statistics', [ReportController::class, 'statistics'])->name('statistics.index');
+    });
 });
 
 // Fallback route pour les pages non trouvées

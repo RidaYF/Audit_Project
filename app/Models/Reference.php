@@ -10,12 +10,15 @@ class Reference extends Model
 {
     use HasFactory, SoftDeletes;
 
+    protected $table = 'iso_references'; // Important: spécifier le nom de la table
+    
     protected $keyType = 'string';
     public $incrementing = false;
 
     protected $fillable = [
         'id', 'code', 'nom', 'description', 'type_norme', 'version',
-        'date_publication', 'url_officielle', 'ordre_affichage', 'is_active'
+        'date_publication', 'url_officielle', 'ordre_affichage', 'is_active',
+        'created_by', 'updated_by'
     ];
 
     protected $casts = [
@@ -30,8 +33,18 @@ class Reference extends Model
 
     public function audits()
     {
-        return $this->belongsToMany(Audit::class, 'audit_references')
+        return $this->belongsToMany(Audit::class, 'audit_references', 'reference_id', 'audit_id')
                     ->withPivot('objectif_specifique', 'ponderation')
                     ->withTimestamps();
+    }
+    
+    public function creator()
+    {
+        return $this->belongsTo(Utilisateur::class, 'created_by');
+    }
+    
+    public function updater()
+    {
+        return $this->belongsTo(Utilisateur::class, 'updated_by');
     }
 }

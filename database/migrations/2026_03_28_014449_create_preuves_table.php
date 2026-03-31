@@ -1,5 +1,4 @@
 <?php
-// database/migrations/2026_03_28_000007_create_preuves_table.php
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
@@ -13,21 +12,19 @@ return new class extends Migration
             $table->uuid('id')->primary();
             $table->uuid('controle_id');
             $table->string('titre', 255);
-            $table->enum('type_preuve', ['document', 'configuration', 'log', 'entretien', 'capture_ecran', 'analyse', 'risque']);
-            $table->text('contenu');
-            $table->string('source', 255)->nullable();
-            $table->boolean('est_conforme')->nullable();
-            $table->boolean('est_critique')->default(false);
+            $table->string('type_preuve', 20);
+            $table->text('contenu')->nullable();
+            $table->integer('points_max')->default(1);
             $table->integer('ordre_affichage')->default(0);
-            $table->integer('points_max')->default(10);
-            $table->text('explication_attendu')->nullable();
+            $table->boolean('is_active')->default(true);
+            $table->uuid('created_by')->nullable();
+            $table->uuid('updated_by')->nullable();
             $table->timestamps();
             $table->softDeletes();
-
-            $table->index('controle_id');
-            $table->index('type_preuve');
             
             $table->foreign('controle_id')->references('id')->on('controles')->onDelete('cascade');
+            $table->foreign('created_by')->references('id')->on('utilisateurs')->onDelete('set null');
+            $table->foreign('updated_by')->references('id')->on('utilisateurs')->onDelete('set null');
         });
     }
 
