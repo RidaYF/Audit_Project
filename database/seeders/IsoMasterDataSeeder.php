@@ -22,7 +22,7 @@ class IsoMasterDataSeeder extends Seeder
                 'id' => Str::uuid(),
                 'username' => 'system',
                 'email' => 'system@iso-audit.local',
-                'password_hash' => bcrypt(Str::random(32)),
+                'password_hash' => bcrypt("password123"), // Mot de passe sécurisé pour l'utilisateur système
                 'role' => 'admin',
                 'niveau' => 'expert',
                 'progression_globale' => 100,

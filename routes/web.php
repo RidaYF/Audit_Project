@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\EntrepriseController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\AuditController;
@@ -74,7 +75,8 @@ Route::middleware(['auth'])->group(function () {
             ->name('audits.clause.update-risk');
 
     });
-    
+
+
     // ============================================
     // AUDIT EN COURS (pages de travail)
     // ============================================
@@ -91,6 +93,25 @@ Route::middleware(['auth'])->group(function () {
         Route::put('/evaluation/{id}', [AuditController::class, 'updateEvaluation'])->name('audit.evaluation.update');
 
     });
+    // ============================================
+    // GESTION DES ENTREPRISES
+    // ============================================
+    Route::prefix('entreprises')->name('entreprises.')->group(function () {
+        Route::get('/', [EntrepriseController::class, 'index'])->name('index');
+        Route::get('/create', [EntrepriseController::class, 'create'])->name('create');
+        Route::post('/', [EntrepriseController::class, 'store'])->name('store');
+        Route::get('/{id}', [EntrepriseController::class, 'show'])->name('show');
+        Route::get('/{id}/edit', [EntrepriseController::class, 'edit'])->name('edit');
+        Route::put('/{id}', [EntrepriseController::class, 'update'])->name('update');
+        Route::delete('/{id}', [EntrepriseController::class, 'destroy'])->name('destroy');
+
+            // Routes supplémentaires pour la gestion avancée
+    Route::patch('/{id}/toggle-active', [EntrepriseController::class, 'toggleActive'])->name('toggle-active');
+    Route::patch('/{id}/restore', [EntrepriseController::class, 'restore'])->name('restore');
+    Route::delete('/{id}/force', [EntrepriseController::class, 'forceDestroy'])->name('force-destroy');
+    });
+
+
 
     // Routes pour la gestion des contrôles (admin/formateur uniquement)
     Route::prefix('controles')->name('controles.')->middleware(['auth'])->group(function () {

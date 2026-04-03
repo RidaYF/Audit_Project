@@ -30,7 +30,9 @@
                            placeholder="Ex: Audit de certification ISO 27001 - TechInnov Solutions"
                            value="{{ old('titre') }}">
                 </div>
-                
+                <div>
+                    i'm here
+                </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">
                         Entreprise à auditer <span class="text-red-500">*</span>
@@ -98,6 +100,7 @@
         
         <!-- Sélection des référentiels ISO -->
         <p>I'M HERE </p>
+        {{-- <p>{{ dd($references) }}</p> --}}
         <div class="card">
             <h2 class="text-lg font-semibold text-gray-900 mb-4">Référentiels ISO à auditer</h2>
             <p class="text-sm text-gray-500 mb-4">Sélectionnez les normes qui seront vérifiées lors de l'audit</p>
