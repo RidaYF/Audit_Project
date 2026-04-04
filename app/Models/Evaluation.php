@@ -40,6 +40,7 @@ class Evaluation extends Model
     {
         return $this->belongsTo(Controle::class, 'controle_id');
     }
+    
 
     // ============================================
     // SCOPES (Filtres)

@@ -140,12 +140,17 @@ Route::middleware(['auth'])->group(function () {
     // RAPPORTS ET STATISTIQUES
     // ============================================
     Route::prefix('reports')->group(function () {
-        Route::get('/audit', [ReportController::class, 'audit'])->name('report.index');
+        // Affichage
+        Route::get('/audit/{id?}', [ReportController::class, 'audit'])->name('report.index');
+        
+        // Sauvegarde (Post)
+        Route::post('/audit/{id}/store', [ReportController::class, 'storeReport'])->name('report.store');
+        
         Route::get('/history', [ReportController::class, 'history'])->name('audit.history');
         Route::get('/statistics', [ReportController::class, 'statistics'])->name('statistics.index');
-    });
+        
 });
-
+});
 // Fallback route pour les pages non trouvées
 Route::fallback(function () {
     return view('errors.404');
