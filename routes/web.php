@@ -74,6 +74,7 @@ Route::middleware(['auth'])->group(function () {
         Route::put('/{auditId}/clause-risk/{clauseEvalId}', [AuditController::class, 'updateClauseRisk'])
             ->name('audits.clause.update-risk');
 
+        Route::get('/{id}/recalculate', [AuditController::class, 'recalculateIndicators'])->name('audits.recalculate');
     });
 
 
@@ -92,7 +93,10 @@ Route::middleware(['auth'])->group(function () {
         Route::put('/clause-evaluation/{id}', [AuditController::class, 'updateClauseEvaluation'])->name('audit.clause-evaluation.update');
         Route::put('/evaluation/{id}', [AuditController::class, 'updateEvaluation'])->name('audit.evaluation.update');
 
+        Route::get('/evaluation/{controleId}', [AuditController::class, 'evaluationSingle'])->name('evaluation.single');
+                
     });
+    
     // ============================================
     // GESTION DES ENTREPRISES
     // ============================================

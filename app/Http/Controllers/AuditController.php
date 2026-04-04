@@ -102,7 +102,7 @@ class AuditController extends Controller
             'date_debut' => 'required|date',
             'date_fin' => 'nullable|date|after:date_debut',
             'reference_ids' => 'required|array|min:1',
-            'reference_ids.*' => 'exists:iso_references,id', // Changé: references -> iso_references
+            'reference_ids.*' => 'exists:iso_references,id',
         ]);
         
         $user = Auth::user();
@@ -254,6 +254,10 @@ class AuditController extends Controller
                 ->with('error', 'Erreur lors de la création: ' . $e->getMessage())
                 ->withInput();
         }
+
+        // Pour la calcule automatique des indicateurs
+        $this->updateAuditIndicators($audit->id);
+
         
         $message = 'Audit créé avec succès ! ';
         if ($clauseCount > 0) $message .= $clauseCount . ' clauses ISO 27001, ';
@@ -264,10 +268,7 @@ class AuditController extends Controller
         return redirect()->route('audits.show', $audit->id)
             ->with('success', $message);
     }
-        
-    /**
- * Afficher les détails d'un audit
- */
+            
     public function show($id)
     {
         $audit = Audit::with([
@@ -275,12 +276,10 @@ class AuditController extends Controller
             'auditeur.utilisateur',
             'references',
             'evaluations' => function($query) {
-                $query->with('controle')
-                    ->orderBy('created_at');
+                $query->with('controle');
             },
             'clauseEvaluations' => function($query) {
-                $query->with('clause')
-                    ->orderBy('clause_id');
+                $query->with('clause');
             }
         ])->findOrFail($id);
         
@@ -290,20 +289,19 @@ class AuditController extends Controller
             abort(403, 'Vous n\'avez pas accès à cet audit.');
         }
         
-        // Calculer la progression des contrôles
+        // Récupérer les indicateurs globaux
+        $progress = $audit->progress_rate ?? 0;
+        $conformityRate = $audit->conformity_rate ?? 0;
+        
+        // Statistiques des contrôles
         $totalControls = $audit->evaluations->count();
         $evaluatedControls = $audit->evaluations->where('statut', '!=', 'non_audite')->count();
-        $progress = $totalControls > 0 ? round(($evaluatedControls / $totalControls) * 100) : 0;
-        
-        // Calculer le taux de conformité des contrôles
         $conformControls = $audit->evaluations->where('statut', 'conforme')->count();
-        $conformityRate = $audit->evaluations->count() > 0 
-            ? round(($conformControls / $audit->evaluations->count()) * 100) 
-            : 0;
         
-        // Calculer la progression des clauses
+        // Statistiques des clauses
         $totalClauses = $audit->clauseEvaluations->count();
         $evaluatedClauses = $audit->clauseEvaluations->where('statut', '!=', 'non_audite')->count();
+        $conformClauses = $audit->clauseEvaluations->where('statut', 'conforme')->count();
         $clauseProgress = $totalClauses > 0 ? round(($evaluatedClauses / $totalClauses) * 100) : 0;
         
         // Statistiques par statut pour les contrôles
@@ -318,13 +316,13 @@ class AuditController extends Controller
         // Statistiques par statut pour les clauses
         $clauseStatsByStatus = [
             'non_audite' => $audit->clauseEvaluations->where('statut', 'non_audite')->count(),
-            'conforme' => $audit->clauseEvaluations->where('statut', 'conforme')->count(),
+            'conforme' => $conformClauses,
             'non_conforme' => $audit->clauseEvaluations->where('statut', 'non_conforme')->count(),
             'partiellement_conforme' => $audit->clauseEvaluations->where('statut', 'partiellement_conforme')->count(),
             'non_applicable' => $audit->clauseEvaluations->where('statut', 'non_applicable')->count(),
         ];
         
-        // Récupérer les contrôles par catégorie pour l'affichage
+        // Récupérer les contrôles par catégorie
         $controlsByCategory = $audit->evaluations->groupBy(function($evaluation) {
             return $evaluation->controle->categorie ?? 'Autres';
         });
@@ -354,7 +352,12 @@ class AuditController extends Controller
             'statsByStatus' => $statsByStatus,
             'clauseStatsByStatus' => $clauseStatsByStatus,
             'controlsByCategory' => $controlsByCategory,
-            'recentEvidences' => $recentEvidences
+            'recentEvidences' => $recentEvidences,
+            // Indicateurs supplémentaires
+            'totalControls' => $totalControls,
+            'evaluatedControls' => $evaluatedControls,
+            'totalClauses' => $totalClauses,
+            'evaluatedClauses' => $evaluatedClauses,
         ]);
     }
         
@@ -526,33 +529,125 @@ class AuditController extends Controller
             'preuves' => $preuves
         ]);
     }
+
+/**
+ * Afficher l'évaluation de conformité (liste des contrôles et clauses)
+ */
+public function evaluation(Request $request)
+{
+    $user = Auth::user();
     
-    /**
-     * Afficher l'évaluation de conformité
-     */
-    public function evaluation()
-    {
-        $user = Auth::user();
+    // Récupérer l'audit en cours
+    $auditId = session('current_audit_id');
+    
+    if (!$auditId) {
+        return redirect()->route('audit.current')->with('error', 'Veuillez sélectionner un audit d\'abord.');
+    }
+    
+    $audit = Audit::with('entreprise')->findOrFail($auditId);
+    
+    // Récupérer le contrôle spécifique si passé en paramètre
+    $controleId = $request->get('controle');
+    
+    if ($controleId) {
+        // Évaluation d'un contrôle spécifique
+        $control = Controle::findOrFail($controleId);
         
-        // Récupérer l'audit en cours
-        $audit = Audit::with(['evaluations.controle', 'evaluations.controle.preuves'])
-            ->where('auditeur_id', $user->auditeur->id)
-            ->where('status', 'en_cours')
-            ->latest()
-            ->first();
+        $evaluation = Evaluation::firstOrCreate(
+            [
+                'audit_id' => $audit->id,
+                'controle_id' => $control->id
+            ],
+            [
+                'id' => Str::uuid(),
+                'statut' => 'non_audite',
+                'justification' => null,
+                'recommandation' => null,
+                'gravite_risque' => null,
+                'probabilite_risque' => null,
+                'niveau_risque_calcule' => null,
+                'preuves_consultees' => json_encode([]),
+                'commentaire_formateur' => null,
+                'date_evaluation' => now(),
+                'points_obtenus' => 0,
+            ]
+        );
         
-        if (!$audit) {
-            return redirect()->route('audits.index')
-                ->with('info', 'Aucun audit en cours.');
-        }
+        return view('pages.audits.evaluation-single', [
+            'title' => 'Évaluation du contrôle - ' . $control->code,
+            'audit' => $audit,
+            'evaluation' => $evaluation,
+            'control' => $control
+        ]);
+    } else {
+        // Liste de tous les contrôles ET clauses
+        $evaluations = Evaluation::with('controle')
+            ->where('audit_id', $audit->id)
+            ->orderBy('created_at')
+            ->get();
+        
+        $clauseEvaluations = AuditClauseEvaluation::with('clause')
+            ->where('audit_id', $audit->id)
+            ->orderBy('created_at')
+            ->get();
         
         return view('pages.audits.evaluation', [
             'title' => 'Évaluation de conformité',
             'audit' => $audit,
-            'evaluations' => $audit->evaluations
+            'evaluations' => $evaluations,
+            'clauseEvaluations' => $clauseEvaluations
         ]);
     }
+}
     
+/**
+ * Afficher l'évaluation d'un contrôle spécifique (création ou modification)
+ */
+public function evaluationSingle($controleId)
+{
+    $user = Auth::user();
+    
+    // Récupérer l'audit en cours
+    $auditId = session('current_audit_id');
+    
+    if (!$auditId) {
+        return redirect()->route('audit.current')->with('error', 'Veuillez sélectionner un audit d\'abord.');
+    }
+    
+    $audit = Audit::with('entreprise')->findOrFail($auditId);
+    
+    // Récupérer le contrôle
+    $control = Controle::findOrFail($controleId);
+    
+    // Vérifier si une évaluation existe déjà pour ce contrôle dans cet audit
+    $evaluation = Evaluation::firstOrCreate(
+        [
+            'audit_id' => $audit->id,
+            'controle_id' => $control->id
+        ],
+        [
+            'id' => Str::uuid(),
+            'statut' => 'non_audite',
+            'justification' => null,
+            'recommandation' => null,
+            'gravite_risque' => null,
+            'probabilite_risque' => null,
+            'niveau_risque_calcule' => null,
+            'preuves_consultees' => json_encode([]),
+            'commentaire_formateur' => null,
+            'date_evaluation' => now(),
+            'points_obtenus' => 0,
+        ]
+    );
+    
+    return view('pages.audits.evaluation-single', [
+        'title' => 'Évaluation du contrôle - ' . $control->code,
+        'audit' => $audit,
+        'evaluation' => $evaluation,
+        'control' => $control
+    ]);
+}
+
     /**
      * Changer l'audit en cours
      */
@@ -793,6 +888,10 @@ public function risk()
                 ]);
             }
         }
+
+        // Indicateurs calcul
+        $this->updateAuditIndicators($id);
+
         
         return redirect()->route('audits.show', $audit->id)
             ->with('success', 'Audit mis à jour avec succès !');
@@ -820,9 +919,12 @@ public function risk()
         if ($audit->status !== 'en_cours') {
             $audit->update(['status' => 'en_cours']);
         }
+
+        $this->updateAuditIndicators($id);
         
         // Définir l'audit en cours dans la session
         session(['current_audit_id' => $audit->id]);
+        
         
         return redirect()->route('audit.current')
             ->with('success', 'Audit démarré !');
@@ -1065,55 +1167,6 @@ public function risk()
         ]);
     }
 
-    /**
-     * Mettre à jour l'évaluation d'un contrôle
-     */
-    public function updateControl(Request $request, $auditId, $evaluationId)
-    {
-        $evaluation = Evaluation::findOrFail($evaluationId);
-        
-        // Vérifier que le contrôle appartient bien à l'audit
-        if ($evaluation->audit_id !== $auditId) {
-            abort(404);
-        }
-        
-        $validated = $request->validate([
-            'statut' => 'required|in:non_audite,conforme,non_conforme,partiellement_conforme,non_applicable',
-            'justification' => 'nullable|string',
-            'recommandation' => 'nullable|string',
-            'gravite_risque' => 'nullable|in:faible,moyen,eleve,critique',
-            'probabilite_risque' => 'nullable|in:faible,moyen,eleve',
-            'points_obtenus' => 'nullable|numeric|min:0',
-            'preuves_consultees' => 'nullable|array',
-        ]);
-        
-        // Calculer le niveau de risque
-        $niveauRisque = null;
-        if ($validated['gravite_risque'] && $validated['probabilite_risque']) {
-            $niveauRisque = $this->calculateRiskLevel(
-                $validated['gravite_risque'],
-                $validated['probabilite_risque']
-            );
-        }
-        
-        $evaluation->update([
-            'statut' => $validated['statut'],
-            'justification' => $validated['justification'],
-            'recommandation' => $validated['recommandation'],
-            'gravite_risque' => $validated['gravite_risque'] ?? null,
-            'probabilite_risque' => $validated['probabilite_risque'] ?? null,
-            'niveau_risque_calcule' => $niveauRisque,
-            'points_obtenus' => $validated['points_obtenus'] ?? 0,
-            'preuves_consultees' => json_encode($validated['preuves_consultees'] ?? []),
-            'date_evaluation' => now(),
-        ]);
-        
-        // Mettre à jour tous les indicateurs de l'audit
-        $this->updateAuditIndicators($auditId);
-        
-        return redirect()->route('audits.show', $auditId)
-            ->with('success', 'Contrôle mis à jour avec succès !');
-    }
 
     /**
      * Afficher les détails d'un contrôle
@@ -1307,8 +1360,9 @@ public function risk()
         ]);
     }
 
-    /**
+     /**
      * Calculer et mettre à jour tous les indicateurs d'un audit
+     * Basé sur les évaluations des contrôles ET des clauses
      */
     private function updateAuditIndicators($auditId)
     {
@@ -1316,88 +1370,143 @@ public function risk()
         if (!$audit) return;
         
         // ============================================
-        // INDICATEURS DES CONTRÔLES (ISO 27002)
+        // 1. INDICATEURS DES CONTRÔLES (ISO 27002)
         // ============================================
-        $totalControls = $audit->evaluations->count();
-        $conformControls = $audit->evaluations->where('statut', 'conforme')->count();
-        $nonConformControls = $audit->evaluations->where('statut', 'non_conforme')->count();
-        $evaluatedControls = $audit->evaluations->where('statut', '!=', 'non_audite')->count();
+        $evaluations = $audit->evaluations;
+        $totalControls = $evaluations->count();
+        $conformControls = $evaluations->where('statut', 'conforme')->count();
+        $nonConformControls = $evaluations->where('statut', 'non_conforme')->count();
+        $partialConformControls = $evaluations->where('statut', 'partiellement_conforme')->count();
+        $evaluatedControls = $evaluations->where('statut', '!=', 'non_audite')->count();
+        
+        // Taux de progression des contrôles
+        $progressRateControls = $totalControls > 0 ? round(($evaluatedControls / $totalControls) * 100, 2) : 0;
         
         // Taux de conformité des contrôles
-        $conformityRate = $totalControls > 0 
-            ? round(($conformControls / $totalControls) * 100, 2)
-            : 0;
+        $conformityRateControls = $totalControls > 0 ? round(($conformControls / $totalControls) * 100, 2) : 0;
         
-        // Progression de l'évaluation (taux d'évaluation)
-        $progressRate = $totalControls > 0 
-            ? round(($evaluatedControls / $totalControls) * 100, 2)
-            : 0;
-        
-        // ============================================
-        // INDICATEURS DES CLAUSES (ISO 27001)
-        // ============================================
-        $totalClauses = $audit->clauseEvaluations->count();
-        $conformClauses = $audit->clauseEvaluations->where('statut', 'conforme')->count();
-        $nonConformClauses = $audit->clauseEvaluations->where('statut', 'non_conforme')->count();
-        
-        $clauseConformityRate = $totalClauses > 0 
-            ? round(($conformClauses / $totalClauses) * 100, 2)
-            : 0;
-        
-        // ============================================
-        // CALCUL DU SCORE TOTAL
-        // ============================================
-        $totalPoints = 0;
-        $maxPoints = 0;
-        
-        foreach ($audit->evaluations as $evaluation) {
-            $controle = $evaluation->controle;
-            $ponderation = $controle->ponderation_defaut ?? 1;
-            $maxPoints += $ponderation;
-            
+        // Score total des contrôles avec pondération
+        $totalPointsControls = 0;
+        $maxPointsControls = 0;
+        foreach ($evaluations as $evaluation) {
+            $ponderation = $evaluation->controle->ponderation_defaut ?? 1;
+            $maxPointsControls += $ponderation;
             if ($evaluation->statut === 'conforme') {
-                $totalPoints += $ponderation;
+                $totalPointsControls += $ponderation;
             } elseif ($evaluation->statut === 'partiellement_conforme') {
-                $totalPoints += $ponderation * 0.5;
+                $totalPointsControls += $ponderation * 0.5;
             }
         }
-        
-        $scoreTotal = $maxPoints > 0 ? round(($totalPoints / $maxPoints) * 100, 2) : 0;
-        
-        // ============================================
-        // STATISTIQUES PAR NIVEAU DE RISQUE
-        // ============================================
-        $critiqueRisks = $audit->evaluations->where('niveau_risque_calcule', 'critique')->count();
-        $highRisks = $audit->evaluations->where('niveau_risque_calcule', 'eleve')->count();
+        $scoreControls = $maxPointsControls > 0 ? round(($totalPointsControls / $maxPointsControls) * 100, 2) : 0;
         
         // ============================================
-        // SAUVEGARDE DE TOUS LES INDICATEURS
+        // 2. INDICATEURS DES CLAUSES (ISO 27001)
+        // ============================================
+        $clauseEvaluations = $audit->clauseEvaluations;
+        $totalClauses = $clauseEvaluations->count();
+        $conformClauses = $clauseEvaluations->where('statut', 'conforme')->count();
+        $nonConformClauses = $clauseEvaluations->where('statut', 'non_conforme')->count();
+        $partialConformClauses = $clauseEvaluations->where('statut', 'partiellement_conforme')->count();
+        $evaluatedClauses = $clauseEvaluations->where('statut', '!=', 'non_audite')->count();
+        
+        // Taux de progression des clauses
+        $progressRateClauses = $totalClauses > 0 ? round(($evaluatedClauses / $totalClauses) * 100, 2) : 0;
+        
+        // Taux de conformité des clauses
+        $conformityRateClauses = $totalClauses > 0 ? round(($conformClauses / $totalClauses) * 100, 2) : 0;
+        
+        // Score des clauses
+        $totalPointsClauses = 0;
+        $maxPointsClauses = 0;
+        foreach ($clauseEvaluations as $clauseEval) {
+            $maxPointsClauses += 100; // Score max par clause = 100
+            $totalPointsClauses += $clauseEval->score ?? 0;
+        }
+        $scoreClauses = $maxPointsClauses > 0 ? round(($totalPointsClauses / $maxPointsClauses) * 100, 2) : 0;
+        
+        // ============================================
+        // 3. INDICATEURS GLOBAUX (Moyennes pondérées)
+        // ============================================
+        // Progression globale (moyenne entre contrôles et clauses)
+        $globalProgress = ($progressRateControls + $progressRateClauses) / 2;
+        
+        // Conformité globale (moyenne entre contrôles et clauses)
+        $globalConformity = ($conformityRateControls + $conformityRateClauses) / 2;
+        
+        // Score global (moyenne entre score contrôles et score clauses)
+        $globalScore = ($scoreControls + $scoreClauses) / 2;
+        
+        // ============================================
+        // 4. INDICATEURS DE RISQUES (des contrôles)
+        // ============================================
+        $critiqueRisks = $evaluations->where('niveau_risque_calcule', 'critique')->count();
+        $highRisks = $evaluations->where('niveau_risque_calcule', 'eleve')->count();
+        $mediumRisks = $evaluations->where('niveau_risque_calcule', 'moyen')->count();
+        $lowRisks = $evaluations->where('niveau_risque_calcule', 'faible')->count();
+        
+        // ============================================
+        // 5. SAUVEGARDE DANS LA BASE
         // ============================================
         $audit->update([
-            'score_total' => $scoreTotal,
-            'progress_rate' => $progressRate,
-            'conformity_rate' => $conformityRate,
+            // Scores
+            'score_total' => $globalScore,
+            
+            // Progressions
+            'progress_rate' => $globalProgress,
+            
+            // Conformités
+            'conformity_rate' => $globalConformity,
+            'clause_conformity_rate' => $conformityRateClauses,
+            
+            // Compteurs contrôles
             'non_conform_count' => $nonConformControls,
+            
+            // Risques
             'critique_risk_count' => $critiqueRisks,
             'high_risk_count' => $highRisks,
-            'clause_conformity_rate' => $clauseConformityRate
         ]);
         
-        // Retourner les indicateurs pour utilisation immédiate
-        return [
-            'score_total' => $scoreTotal,
-            'progress_rate' => $progressRate,
-            'conformity_rate' => $conformityRate,
+        // Log pour déboguer
+        \Log::info('Indicateurs mis à jour', [
+            'audit_id' => $auditId,
+            'global_progress' => $globalProgress,
+            'global_conformity' => $globalConformity,
+            'controls_progress' => $progressRateControls,
+            'clauses_progress' => $progressRateClauses,
             'total_controls' => $totalControls,
-            'evaluated_controls' => $evaluatedControls,
-            'conform_controls' => $conformControls,
-            'non_conform_controls' => $nonConformControls,
             'total_clauses' => $totalClauses,
-            'conform_clauses' => $conformClauses,
-            'non_conform_clauses' => $nonConformClauses,
-            'clause_conformity_rate' => $clauseConformityRate,
-            'critique_risks' => $critiqueRisks,
-            'high_risks' => $highRisks
+            'evaluated_controls' => $evaluatedControls,
+            'evaluated_clauses' => $evaluatedClauses,
+        ]);
+        
+        return [
+            'global_progress' => $globalProgress,
+            'global_conformity' => $globalConformity,
+            'global_score' => $globalScore,
+            'controls' => [
+                'total' => $totalControls,
+                'evaluated' => $evaluatedControls,
+                'conform' => $conformControls,
+                'non_conform' => $nonConformControls,
+                'progress_rate' => $progressRateControls,
+                'conformity_rate' => $conformityRateControls,
+                'score' => $scoreControls,
+            ],
+            'clauses' => [
+                'total' => $totalClauses,
+                'evaluated' => $evaluatedClauses,
+                'conform' => $conformClauses,
+                'non_conform' => $nonConformClauses,
+                'progress_rate' => $progressRateClauses,
+                'conformity_rate' => $conformityRateClauses,
+                'score' => $scoreClauses,
+            ],
+            'risks' => [
+                'critique' => $critiqueRisks,
+                'high' => $highRisks,
+                'medium' => $mediumRisks,
+                'low' => $lowRisks,
+            ]
         ];
     }
 
@@ -1435,5 +1544,72 @@ public function risk()
         return redirect()->route('audits.show', $auditId)
             ->with('success', 'Clause mise à jour avec succès !');
     }
+
+    /**
+     * Recalculer tous les indicateurs d'un audit (utile pour corriger des données)
+     */
+    public function recalculateIndicators($id)
+    {
+        $audit = Audit::findOrFail($id);
+        
+        // Recalculer tous les indicateurs
+        $indicators = $this->updateAuditIndicators($id);
+        
+        return redirect()->route('audits.show', $id)
+            ->with('success', 'Indicateurs recalculés : Score ' . $indicators['score_total'] . 
+                '%, Conformité ' . $indicators['conformity_rate'] . 
+                '%, Progression ' . $indicators['progress_rate'] . '%');
+    }
+
+/**
+ * Mettre à jour l'évaluation d'un contrôle
+ */
+public function updateControl(Request $request, $auditId, $evaluationId)
+{
+    $evaluation = Evaluation::findOrFail($evaluationId);
+    
+    // Vérifier que le contrôle appartient bien à l'audit
+    if ($evaluation->audit_id !== $auditId) {
+        abort(404);
+    }
+    
+    $validated = $request->validate([
+        'statut' => 'required|in:non_audite,conforme,non_conforme,partiellement_conforme,non_applicable',
+        'justification' => 'nullable|string',
+        'recommandation' => 'nullable|string',
+        'gravite_risque' => 'nullable|in:faible,moyen,eleve,critique',
+        'probabilite_risque' => 'nullable|in:faible,moyen,eleve',
+        'points_obtenus' => 'nullable|numeric|min:0',
+        'preuves_consultees' => 'nullable|array',
+    ]);
+    
+    // Calculer le niveau de risque
+    $niveauRisque = null;
+    if ($validated['gravite_risque'] && $validated['probabilite_risque']) {
+        $niveauRisque = $this->calculateRiskLevel(
+            $validated['gravite_risque'],
+            $validated['probabilite_risque']
+        );
+    }
+    
+    $evaluation->update([
+        'statut' => $validated['statut'],
+        'justification' => $validated['justification'],
+        'recommandation' => $validated['recommandation'],
+        'gravite_risque' => $validated['gravite_risque'] ?? null,
+        'probabilite_risque' => $validated['probabilite_risque'] ?? null,
+        'niveau_risque_calcule' => $niveauRisque,
+        'points_obtenus' => $validated['points_obtenus'] ?? 0,
+        'preuves_consultees' => json_encode($validated['preuves_consultees'] ?? []),
+        'date_evaluation' => now(),
+    ]);
+    
+    // Mettre à jour tous les indicateurs de l'audit
+    $this->updateAuditIndicators($auditId);
+    
+    return redirect()->route('audits.show', $auditId)
+        ->with('success', 'Contrôle mis à jour avec succès !');
+}
+
 
 }

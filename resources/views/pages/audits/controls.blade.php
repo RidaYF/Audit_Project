@@ -71,7 +71,7 @@
                 ];
                 // Récupérer l'évaluation pour ce contrôle
                 $evaluation = isset($evaluations[$control->id]) ? $evaluations[$control->id] : null;
-                $evaluationId = $evaluation ? $evaluation->id : null;
+                $evaluationStatus = $evaluation ? $evaluation->statut : null;
             @endphp
             <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-all">
                 <div class="flex items-start justify-between">
@@ -87,12 +87,12 @@
                             @if($control->categorie)
                                 <span class="px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-700">{{ $control->categorie }}</span>
                             @endif
-                            @if($evaluation && $evaluation->statut != 'non_audite')
+                            @if($evaluationStatus && $evaluationStatus != 'non_audite')
                                 <span class="px-2 py-0.5 rounded-full text-xs 
-                                    {{ $evaluation->statut == 'conforme' ? 'bg-green-100 text-green-700' : 
-                                       ($evaluation->statut == 'non_conforme' ? 'bg-red-100 text-red-700' : 
-                                       ($evaluation->statut == 'partiellement_conforme' ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-700')) }}">
-                                    {{ ucfirst(str_replace('_', ' ', $evaluation->statut)) }}
+                                    {{ $evaluationStatus == 'conforme' ? 'bg-green-100 text-green-700' : 
+                                       ($evaluationStatus == 'non_conforme' ? 'bg-red-100 text-red-700' : 
+                                       ($evaluationStatus == 'partiellement_conforme' ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-700')) }}">
+                                    {{ ucfirst(str_replace('_', ' ', $evaluationStatus)) }}
                                 </span>
                             @endif
                         </div>
@@ -131,23 +131,21 @@
                             Voir détails
                         </a>
                         
-                        <!-- Bouton Modifier l'évaluation (si audit en cours et évaluation existe) -->
-                        @if($audit && $evaluationId)
-                            <a href="{{ route('audits.control.edit', [$audit->id, $evaluationId]) }}" 
+                        <!-- Bouton Évaluer (redirige vers la page d'évaluation unique) -->
+                        @if($audit)
+                            <a href="{{ route('evaluation.single', $control->id) }}" 
                                class="px-3 py-1 text-sm bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors">
-                                Évaluer
+                                {{ $evaluationStatus && $evaluationStatus != 'non_audite' ? 'Modifier' : 'Évaluer' }}
                             </a>
-                        @elseif($audit)
-                            <span class="px-3 py-1 text-sm bg-gray-300 text-gray-500 rounded-lg cursor-not-allowed">
-                                Non évalué
-                            </span>
                         @endif
                         
                         <!-- Bouton Modifier les infos du contrôle (données maîtres) -->
+                        @if(auth()->user()->role === 'admin' || auth()->user()->role === 'formateur')
                         <a href="{{ route('controles.edit', $control->id) }}" 
                            class="px-3 py-1 text-sm border border-purple-600 text-purple-600 rounded-lg hover:bg-purple-50 transition-colors">
                             Modifier
                         </a>
+                        @endif
                     </div>
                 </div>
             </div>

@@ -1,0 +1,27 @@
+[90m= [39m[34;4mIlluminate\Database\Eloquent\Collection[39;24m {#8077
+    [34mall[39m: [
+      [34;4mApp\Models\Audit[39;24m {#8078
+        [34mid[39m: [32m"[39m[32m3d7a256b-961f-43e1-ba51-4cbbfe1ab321[39m[32m"[39m,
+        [34mauditeur_id[39m: [32m"[39m[32m6fbdfbb1-844e-433d-94de-625a9e1e19ae[39m[32m"[39m,
+        [34mentreprise_id[39m: [32m"[39m[32m019d59bf-fbae-711a-8430-b6683ef8fc36[39m[32m"[39m,
+        [34mtitre[39m: [32m"[39m[32mOrgnTechVision[39m[32m"[39m,
+        [34mdescription[39m: [36mnull[39m,
+        [34mdate_debut[39m: [32m"[39m[32m2026-04-04 18:27:00[39m[32m"[39m,
+        [34mdate_fin[39m: [36mnull[39m,
+        [34mstatus[39m: [32m"[39m[32men_cours[39m[32m"[39m,
+        [34mscore_total[39m: [35m0.0[39m,
+        [34mtemps_total[39m: [35m0[39m,
+        [34mcommentaire_global[39m: [36mnull[39m,
+        [34msignature_auditeur[39m: [36mnull[39m,
+        [34mcreated_at[39m: [32m"[39m[32m2026-04-04 18:28:12[39m[32m"[39m,
+        [34mupdated_at[39m: [32m"[39m[32m2026-04-04 18:28:12[39m[32m"[39m,
+        [34mdeleted_at[39m: [36mnull[39m,
+        [34mprogress_rate[39m: [35m0.0[39m,
+        [34mconformity_rate[39m: [35m0.0[39m,
+        [34mnon_conform_count[39m: [35m0[39m,
+        [34mcritique_risk_count[39m: [35m0[39m,
+        [34mhigh_risk_count[39m: [35m0[39m,
+        [34mclause_conformity_rate[39m: [35m0.0[39m,
+      },
+    ],
+  }

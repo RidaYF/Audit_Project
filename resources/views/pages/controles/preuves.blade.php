@@ -3,8 +3,8 @@
 @section('content')
 <div class="space-y-6">
     <div>
-        <a href="{{ route('controles.index') }}" class="text-sm text-purple-600 hover:text-purple-700 mb-2 inline-block">
-            ← Retour à la liste des contrôles
+        <a href="{{ route('controls.iso') }}" class="text-sm text-orange-600 hover:text-orange-700 mb-2 inline-block">
+            ← Retour aux contrôles
         </a>
         <h1 class="text-2xl font-bold text-gray-900">Gestion des preuves</h1>
         <p class="text-sm text-gray-500 mt-1">{{ $controle->code }} - {{ $controle->titre }}</p>
