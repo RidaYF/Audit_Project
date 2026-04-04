@@ -30,13 +30,20 @@
                            placeholder="Ex: Audit de certification ISO 27001 - TechInnov Solutions"
                            value="{{ old('titre') }}">
                 </div>
+
                 <div>
-                    i'm here
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">
-                        Entreprise à auditer <span class="text-red-500">*</span>
-                    </label>
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="block text-sm font-medium text-gray-700">
+                            Entreprise à auditer <span class="text-red-500">*</span>
+                        </label>
+                        <a href="{{ route('entreprises.create') }}" target="_blank" 
+                           class="text-sm text-purple-600 hover:text-purple-700 inline-flex items-center gap-1">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                            </svg>
+                            Nouvelle entreprise
+                        </a>
+                    </div>
                     <select name="entreprise_id" required 
                             class="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-purple-500 focus:ring-purple-500"
                             @change="loadEnterpriseData($event.target.value)">
@@ -47,8 +54,14 @@
                             </option>
                         @endforeach
                     </select>
+                    <p class="mt-1 text-xs text-gray-500">
+                        L'entreprise n'est pas dans la liste ? 
+                        <a href="{{ route('entreprises.create') }}" target="_blank" class="text-purple-600 hover:text-purple-700">
+                            Ajoutez-la ici
+                        </a>
+                    </p>
                 </div>
-                
+
                 <!-- Info entreprise sélectionnée -->
                 <div x-show="selectedEnterprise" x-cloak class="bg-gray-50 rounded-lg p-4">
                     <h3 class="font-medium text-gray-900 mb-2">Contexte de l'entreprise</h3>

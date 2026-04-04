@@ -94,6 +94,7 @@ class AuditController extends Controller
      */
     public function store(Request $request)
     {
+        
         $validated = $request->validate([
             'entreprise_id' => 'required|exists:entreprises,id',
             'titre' => 'required|string|max:255',
