@@ -128,6 +128,8 @@
                            class="text-sm text-purple-600 hover:text-purple-700">
                             Évaluer cette clause →
                         </a>
+
+                        
                     </div>
                 </div>
             @endforeach
@@ -217,7 +219,7 @@
                                 </div>
                             </div>
                             <div class="ml-4">
-                                <a href="{{ route('audits.control.edit', [$audit->id, $evaluation->id]) }}" 
+                                <a href="{{ route('evaluation.single', $control->id) }}" 
                                    class="px-3 py-1 text-sm border border-blue-300 text-blue-600 rounded-lg hover:bg-blue-50 transition-colors">
                                     Évaluer
                                 </a>

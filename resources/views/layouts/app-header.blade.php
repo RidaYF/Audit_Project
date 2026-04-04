@@ -90,9 +90,17 @@
         <!-- Application Menu (mobile) and Right Side Actions (desktop) -->
         <div :class="isApplicationMenuOpen ? 'flex' : 'hidden'"
             class="items-center justify-between w-full gap-4 px-5 py-4 xl:flex shadow-md xl:justify-end xl:px-0 xl:shadow-none">
+            <!-- Déconnexion simple -->
             <div class="flex items-center gap-2 2xsm:gap-3">
-                <!-- User Dropdown -->
-                <x-header.user-dropdown />
+                <form method="POST" action="{{ route('logout') }}" class="inline">
+                    @csrf
+                    <button type="submit" class="flex items-center gap-2 text-gray-700 hover:text-red-600 transition-colors">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
+                        </svg>
+                        <span class="hidden sm:inline">Déconnexion</span>
+                    </button>
+                </form>
             </div>
         </div>
     </div>
