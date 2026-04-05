@@ -101,8 +101,8 @@ class AuditController extends Controller
             'description' => 'nullable|string',
             'date_debut' => 'required|date',
             'date_fin' => 'nullable|date|after:date_debut',
-            'iso_reference' => 'required|array|min:1',
-            'iso_reference.*' => 'exists:iso_references,id',
+            'reference_ids' => 'required|array|min:1',
+            'reference_ids.*' => 'exists:iso_references,id',
         ]);
         
         $user = Auth::user();
@@ -128,7 +128,7 @@ class AuditController extends Controller
             'temps_total' => 0,
         ]);
         
-        $selectedRefIds = $validated['iso_reference'];
+        $selectedRefIds = $validated['reference_ids'];
         
         // Récupérer les IDs des références
         $iso27001Id = Reference::where('code', 'ISO27001')->value('id');
@@ -837,8 +837,8 @@ public function risk()
             'date_debut' => 'required|date',
             'date_fin' => 'nullable|date|after:date_debut',
             'status' => 'required|in:en_cours,suspendu,termine,annule',
-            'iso_reference' => 'required|array|min:1',
-            'iso_reference.*' => 'exists:references,id',
+            'reference_ids' => 'required|array|min:1',
+            'reference_ids.*' => 'exists:references,id',
             'control_ids' => 'nullable|array',
             'control_ids.*' => 'exists:controles,id',
         ]);
@@ -854,7 +854,7 @@ public function risk()
         
         // Mettre à jour les référentiels associés
         AuditReference::where('audit_id', $audit->id)->delete();
-        foreach ($validated['iso_reference'] as $referenceId) {
+        foreach ($validated['reference_ids'] as $referenceId) {
             AuditReference::create([
                 'id' => Str::uuid(),
                 'audit_id' => $audit->id,
@@ -1510,17 +1510,19 @@ public function risk()
         ];
     }
 
-        /**
-     * Mettre à jour l'évaluation d'une clause
-     */
     public function updateClause(Request $request, $auditId, $clauseEvalId)
     {
         $clauseEval = AuditClauseEvaluation::findOrFail($clauseEvalId);
         
-        // Vérifier que la clause appartient bien à l'audit
         if ($clauseEval->audit_id !== $auditId) {
             abort(404);
         }
+        
+        // Ajoutez ce log pour voir les données reçues
+        \Log::info('Données reçues pour la clause', [
+            'clause_id' => $clauseEvalId,
+            'entreprise_data' => $request->input('entreprise_data', [])
+        ]);
         
         $validated = $request->validate([
             'statut' => 'required|in:non_audite,conforme,non_conforme,partiellement_conforme,non_applicable',
@@ -1528,6 +1530,14 @@ public function risk()
             'recommandation' => 'nullable|string',
             'niveau_conformite' => 'nullable|in:faible,moyen,eleve,excellent',
             'score' => 'nullable|numeric|min:0|max:100',
+            'entreprise_data' => 'nullable|array',
+        ]);
+        
+        $entrepriseData = $request->input('entreprise_data', []);
+        
+        // Ajoutez ce log pour voir ce qui va être sauvegardé
+        \Log::info('Sauvegarde des données entreprise', [
+            'entreprise_data' => $entrepriseData
         ]);
         
         $clauseEval->update([
@@ -1536,9 +1546,14 @@ public function risk()
             'recommandation' => $validated['recommandation'],
             'niveau_conformite' => $validated['niveau_conformite'],
             'score' => $validated['score'] ?? 0,
+            'entreprise_data' => $entrepriseData,
         ]);
         
-        // Mettre à jour tous les indicateurs de l'audit (pour les clauses aussi)
+        // Ajoutez ce log pour vérifier après sauvegarde
+        \Log::info('Données après sauvegarde', [
+            'saved_data' => $clauseEval->fresh()->entreprise_data
+        ]);
+        
         $this->updateAuditIndicators($auditId);
         
         return redirect()->route('audits.show', $auditId)

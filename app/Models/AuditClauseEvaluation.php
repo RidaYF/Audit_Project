@@ -27,12 +27,14 @@ class AuditClauseEvaluation extends Model
         'date_echeance',     
         'priorite',          
         'commentaires',      
-        'statut_traitement'  
+        'statut_traitement' ,
+        'entreprise_data',
     ];
 
     protected $casts = [
         'date_echeance' => 'date',
-        'score' => 'float'
+        'score' => 'float',
+        'entreprise_data' => 'array'
     ];
 
     public function audit()
