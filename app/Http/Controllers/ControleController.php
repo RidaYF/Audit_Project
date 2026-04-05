@@ -74,7 +74,7 @@ class ControleController extends Controller
         
         $controle->update($validated);
         
-        return redirect()->route('controles.index')
+        return redirect()->route('controls.iso')
             ->with('success', 'Contrôle mis à jour avec succès !');
     }
     
