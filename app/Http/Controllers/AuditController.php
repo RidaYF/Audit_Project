@@ -101,8 +101,8 @@ class AuditController extends Controller
             'description' => 'nullable|string',
             'date_debut' => 'required|date',
             'date_fin' => 'nullable|date|after:date_debut',
-            'reference_ids' => 'required|array|min:1',
-            'reference_ids.*' => 'exists:iso_references,id',
+            'iso_reference' => 'required|array|min:1',
+            'iso_reference.*' => 'exists:iso_references,id',
         ]);
         
         $user = Auth::user();
@@ -128,7 +128,7 @@ class AuditController extends Controller
             'temps_total' => 0,
         ]);
         
-        $selectedRefIds = $validated['reference_ids'];
+        $selectedRefIds = $validated['iso_reference'];
         
         // Récupérer les IDs des références
         $iso27001Id = Reference::where('code', 'ISO27001')->value('id');
@@ -837,8 +837,8 @@ public function risk()
             'date_debut' => 'required|date',
             'date_fin' => 'nullable|date|after:date_debut',
             'status' => 'required|in:en_cours,suspendu,termine,annule',
-            'reference_ids' => 'required|array|min:1',
-            'reference_ids.*' => 'exists:references,id',
+            'iso_reference' => 'required|array|min:1',
+            'iso_reference.*' => 'exists:references,id',
             'control_ids' => 'nullable|array',
             'control_ids.*' => 'exists:controles,id',
         ]);
@@ -854,7 +854,7 @@ public function risk()
         
         // Mettre à jour les référentiels associés
         AuditReference::where('audit_id', $audit->id)->delete();
-        foreach ($validated['reference_ids'] as $referenceId) {
+        foreach ($validated['iso_reference'] as $referenceId) {
             AuditReference::create([
                 'id' => Str::uuid(),
                 'audit_id' => $audit->id,
